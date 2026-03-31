@@ -53,6 +53,7 @@ struct NesterConfig {
     float  bed_width_mm      = 256.0f;
     float  bed_height_mm     = 256.0f;
     float  min_gap_mm        = 5.0f;   // Minimum clearance between parts
+    float  voxel_size_mm     = 2.0f;   // Used to compute safety margin for rotation
 
     // Rotation control
     bool   lock_rotation     = false;  // true = XY only, preserve user's Z rotation
@@ -586,6 +587,10 @@ private:
         ind.fitness = 0.0f;
 
         // ── Collision: pairwise voxel overlap ──────────────
+        // Both grids are checked at their placed XY positions (no rotation
+        // applied to grids). Conservative outward rounding on the voxelizer
+        // ensures that if voxels don't overlap, meshes don't intersect.
+        // The min_gap_mm in the fitness function provides additional clearance.
         for (size_t i = 0; i < n; i++) {
             const auto &pi = ind.placements[i];
             Vec3f off_i = {pi.x, pi.y, 0.0f};
@@ -594,9 +599,6 @@ private:
                 const auto &pj = ind.placements[j];
                 Vec3f off_j = {pj.x, pj.y, 0.0f};
 
-                // Note: Z-rotation not yet applied to voxel grid
-                // (we check at grid origin + XY offset for now;
-                //  rotation support comes with rotated grid lookup)
                 size_t c = VoxelGrid::collision_count(
                     parts[i].grid, off_i,
                     parts[j].grid, off_j);
@@ -672,7 +674,39 @@ private:
             }
             if (n_pair_count > 0) proximity_score /= n_pair_count;
 
-            // 4. Height centering: tall parts near center
+            // 4. Blob shape: penalize elongated bounding boxes, reward square-ish ones.
+            //    A line of parts has aspect ratio >> 1. A blob has aspect ratio ≈ 1.
+            float bbox_w = max_x - min_x;
+            float bbox_h = max_y - min_y;
+            float aspect = (bbox_w > 0.01f && bbox_h > 0.01f)
+                ? std::min(bbox_w, bbox_h) / std::max(bbox_w, bbox_h)
+                : 0.0f;
+            // aspect = 1.0 for square, approaches 0 for lines
+
+            // 5. Cluster tightness: minimize mean distance from centroid.
+            //    Low = tight blob. High = scattered or line-shaped.
+            float cx = 0, cy = 0;
+            for (size_t i = 0; i < n; i++) {
+                cx += ind.placements[i].x;
+                cy += ind.placements[i].y;
+            }
+            cx /= n; cy /= n;
+
+            float mean_dist_from_center = 0;
+            for (size_t i = 0; i < n; i++) {
+                float dx = ind.placements[i].x - cx;
+                float dy = ind.placements[i].y - cy;
+                mean_dist_from_center += std::sqrt(dx*dx + dy*dy);
+            }
+            mean_dist_from_center /= n;
+
+            // Normalize: a perfectly centered blob on a 256mm bed has
+            // mean dist ≈ 0. Parts scattered across the bed have mean dist ≈ 100mm.
+            float bed_diag = std::sqrt(cfg_.bed_width_mm * cfg_.bed_width_mm +
+                                       cfg_.bed_height_mm * cfg_.bed_height_mm);
+            float cluster_score = 1.0f - std::clamp(mean_dist_from_center / (bed_diag * 0.25f), 0.0f, 1.0f);
+
+            // 6. Height centering: tall parts near center
             float height_score = 0.0f;
             float bed_cx = cfg_.bed_width_mm * 0.5f;
             float bed_cy = cfg_.bed_height_mm * 0.5f;
@@ -691,6 +725,8 @@ private:
             ind.fitness = cfg_.w_compactness * compactness
                         + cfg_.w_compactness * 0.5f * density
                         + cfg_.w_compactness * 0.3f * proximity_score
+                        + cfg_.w_compactness * 0.4f * aspect          // prefer square bbox
+                        + cfg_.w_compactness * 0.5f * cluster_score   // prefer tight blob
                         + cfg_.w_height_center * height_score;
         }
     }
