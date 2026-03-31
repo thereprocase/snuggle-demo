@@ -15,9 +15,13 @@ This repo contains the standalone CPU prototype, test harness, and benchmark too
 | `test_snuggle.cpp` | End-to-end: load STLs → voxelize → evolve → validate |
 | `sweep_resolution.cpp` | Resolution/population parameter sweep on one test set |
 | `sweep_full.cpp` | Full sweep across multiple test sets |
+| `gpu_poc.cpp` | GPU compute shader proof of concept (collision detection) |
+| `gpu_bench.cpp` | GPU vs CPU benchmark with batched dispatches |
 | `nsvg_stub.cpp` | Provides nanosvg symbols for headless libslic3r linking |
 | `CMakeLists.txt` | Build system — links against a pre-built OrcaSlicer tree |
 | `GPU_GENETIC_NESTING_WHITEPAPER.md` | Full technical white paper |
+| `GPU_OPTIMIZATION_NOTES.md` | GPU optimization log and benchmarks |
+| `FINDINGS.md` | Algorithm evolution, recommended parameters, benchmark results |
 | `SNUGGLE_TEST_CASES.md` | Test case design and validation criteria |
 
 ## How It Works
