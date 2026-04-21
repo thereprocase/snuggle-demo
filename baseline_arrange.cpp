@@ -359,6 +359,12 @@ int main(int argc, char **argv) {
 
         // Build ArrangePolygons from model instances
         arrangement::ArrangePolygons items;
+        size_t total_instances = 0;
+        for (ModelObject *obj : model.objects) {
+            total_instances += obj->instances.size();
+        }
+        items.reserve(total_instances);
+
         for (ModelObject *obj : model.objects) {
             for (ModelInstance *inst : obj->instances) {
                 arrangement::ArrangePolygon ap;
