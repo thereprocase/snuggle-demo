@@ -144,6 +144,11 @@ public:
             return result;
         }
 
+        total_part_area_ = 0.0f;
+        for (const auto& p : parts) {
+            total_part_area_ += p.hull_area_mm2;
+        }
+
         // ── Initialize population ──────────────────────────
         // Four seeds, rest random. Simple and proven.
         std::vector<Individual> pop(cfg_.population_size);
@@ -285,6 +290,7 @@ public:
 private:
     NesterConfig cfg_;
     std::mt19937 rng_;
+    float total_part_area_ = 0.0f;
 
     // ── Random float in range ─────────────────────────────
     float randf(float lo, float hi) {
@@ -646,9 +652,7 @@ private:
 
             // 2. Packing density: sum of part areas / bounding area
             //    Rewards arrangements where parts fill their bounding box tightly
-            float sum_part_area = 0;
-            for (const auto &p : parts) sum_part_area += p.hull_area_mm2;
-            float density = (bbox_area > 0) ? (sum_part_area / bbox_area) : 0.0f;
+            float density = (bbox_area > 0) ? (total_part_area_ / bbox_area) : 0.0f;
             density = std::clamp(density, 0.0f, 1.0f);
 
             // 3. Neighbor proximity: reward close (but not colliding) pairs
