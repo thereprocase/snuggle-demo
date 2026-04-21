@@ -106,9 +106,9 @@ int main(int argc, char** argv) {
     const char* env = std::getenv("SNUGGLE_TEST_PARTS");
     if (env) parts_root = env;
 
-    // ── Test 0: Math functions ─────────────────────────────
+    // ── Test 0a: Math functions ────────────────────────────
     {
-        std::cout << "--- Test 0: Math functions ---\n";
+        std::cout << "--- Test 0a: Math functions ---\n";
         snuggle::Vec3f v0{1.0f, 0.0f, 0.0f};
         snuggle::Vec3f v1{0.0f, 2.0f, 0.0f};
         snuggle::Vec3f v2{0.0f, 0.0f, 3.0f};
@@ -137,6 +137,23 @@ int main(int argc, char** argv) {
         float pmax_id = snuggle::detail::project_max(id, id, id, axis_x);
         EXPECT(std::abs(pmin_id - 2.0f) < 1e-6f, "project_min handles identical projections");
         EXPECT(std::abs(pmax_id - 2.0f) < 1e-6f, "project_max handles identical projections");
+    }
+
+    // ── Test 0b: AABB Expand ───────────────────────────────
+    {
+        std::cout << "--- Test 0b: AABB Expand ---\n";
+        snuggle::AABB aabb;
+        EXPECT(aabb.min.x > 1e17f && aabb.max.x < -1e17f, "Initial bounds are inverted");
+
+        aabb.expand({0.0f, 0.0f, 0.0f});
+        EXPECT(aabb.min.x == 0.0f && aabb.max.x == 0.0f, "Expanded with 0,0,0");
+
+        aabb.expand({10.0f, -5.0f, 3.0f});
+        EXPECT(aabb.min.x == 0.0f && aabb.min.y == -5.0f && aabb.min.z == 0.0f, "Min updated correctly");
+        EXPECT(aabb.max.x == 10.0f && aabb.max.y == 0.0f && aabb.max.z == 3.0f, "Max updated correctly");
+
+        snuggle::Vec3f size = aabb.size();
+        EXPECT(size.x == 10.0f && size.y == 5.0f && size.z == 3.0f, "Size calculated correctly");
     }
 
     if (!check_watchdog()) goto done;
