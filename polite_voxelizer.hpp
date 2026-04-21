@@ -386,6 +386,55 @@ inline VoxError voxelize_mesh(
         iy_max = std::min((int)gy - 1, iy_max + 1);
         iz_max = std::min((int)gz - 1, iz_max + 1);
 
+        // Precompute triangle edge vectors and axes for AABB overlap test
+        Vec3f e0 = tri.v1 - tri.v0;
+        Vec3f e1 = tri.v2 - tri.v1;
+        Vec3f e2 = tri.v0 - tri.v2;
+
+        Vec3f axes[9] = {
+            {0, -e0.z, e0.y}, {0, -e1.z, e1.y}, {0, -e2.z, e2.y},
+            {e0.z, 0, -e0.x}, {e1.z, 0, -e1.x}, {e2.z, 0, -e2.x},
+            {-e0.y, e0.x, 0}, {-e1.y, e1.x, 0}, {-e2.y, e2.x, 0},
+        };
+
+        // Filter out degenerate axes and precompute 'r' since 'a' and 'half' are constant per triangle
+        int num_axes = 0;
+        Vec3f valid_axes[9];
+        float valid_r[9];
+        for (int i = 0; i < 9; i++) {
+            float len2 = axes[i].x*axes[i].x + axes[i].y*axes[i].y + axes[i].z*axes[i].z;
+            if (len2 >= 1e-12f) {
+                valid_axes[num_axes] = axes[i];
+                valid_r[num_axes] = half.x * std::abs(axes[i].x) + half.y * std::abs(axes[i].y) + half.z * std::abs(axes[i].z);
+                num_axes++;
+            }
+        }
+
+        // Also precompute the triangle normal for the normal axis test
+        Vec3f n = e0.cross(e1);
+        float n_r = half.x * std::abs(n.x) + half.y * std::abs(n.y) + half.z * std::abs(n.z);
+        float n_tri_dot = n.dot(tri.v0); // constant since n.dot(v0) == n.dot(v1) == n.dot(v2)
+
+        // Precompute bounds for the 3 box face axes
+        float tri_min_x = std::min({tri.v0.x, tri.v1.x, tri.v2.x});
+        float tri_max_x = std::max({tri.v0.x, tri.v1.x, tri.v2.x});
+        float tri_min_y = std::min({tri.v0.y, tri.v1.y, tri.v2.y});
+        float tri_max_y = std::max({tri.v0.y, tri.v1.y, tri.v2.y});
+        float tri_min_z = std::min({tri.v0.z, tri.v1.z, tri.v2.z});
+        float tri_max_z = std::max({tri.v0.z, tri.v1.z, tri.v2.z});
+
+        // For the 9 cross-product axes, precompute the bounds of the triangle projected onto the axis
+        float ax_tri_min[9];
+        float ax_tri_max[9];
+        for (int i = 0; i < num_axes; i++) {
+            const Vec3f &a = valid_axes[i];
+            float p0 = tri.v0.x*a.x + tri.v0.y*a.y + tri.v0.z*a.z;
+            float p1 = tri.v1.x*a.x + tri.v1.y*a.y + tri.v1.z*a.z;
+            float p2 = tri.v2.x*a.x + tri.v2.y*a.y + tri.v2.z*a.z;
+            ax_tri_min[i] = std::min({p0, p1, p2});
+            ax_tri_max[i] = std::max({p0, p1, p2});
+        }
+
         // Test each voxel in the triangle's AABB
         for (int iz = iz_min; iz <= iz_max; iz++) {
             for (int iy = iy_min; iy <= iy_max; iy++) {
@@ -393,12 +442,34 @@ inline VoxError voxelize_mesh(
                     // Voxel center in world space
                     Vec3f center = out_grid.grid_to_world_center(ix, iy, iz);
 
-                    // Translate triangle relative to voxel center
-                    Vec3f v0 = tri.v0 - center;
-                    Vec3f v1 = tri.v1 - center;
-                    Vec3f v2 = tri.v2 - center;
+                    bool overlap = true;
 
-                    if (detail::triangle_aabb_overlap(v0, v1, v2, half)) {
+                    // 3 box face axes - fast fail
+                    // The center must be within half of the AABB of the triangle
+                    if (center.x + half.x < tri_min_x || center.x - half.x > tri_max_x) overlap = false;
+                    else if (center.y + half.y < tri_min_y || center.y - half.y > tri_max_y) overlap = false;
+                    else if (center.z + half.z < tri_min_z || center.z - half.z > tri_max_z) overlap = false;
+
+                    if (overlap) {
+                        // Triangle normal axis
+                        // distance from center to plane <= n_r
+                        float center_dot = n.x*center.x + n.y*center.y + n.z*center.z;
+                        float d = n_tri_dot - center_dot;
+                        if (std::abs(d) > n_r) overlap = false;
+                    }
+
+                    if (overlap) {
+                        // 9 cross-product axes
+                        for (int i = 0; i < num_axes; i++) {
+                            const Vec3f &a = valid_axes[i];
+                            float center_dot = center.x*a.x + center.y*a.y + center.z*a.z;
+                            float pmin = ax_tri_min[i] - center_dot;
+                            float pmax = ax_tri_max[i] - center_dot;
+                            if (pmin > valid_r[i] || pmax < -valid_r[i]) { overlap = false; break; }
+                        }
+                    }
+
+                    if (overlap) {
                         out_grid.set(ix, iy, iz);
                     }
                 }
