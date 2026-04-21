@@ -311,6 +311,35 @@ int main(int argc, char** argv) {
         std::cout << "  Error: " << snuggle::vox_error_str(err) << " (expected)\n";
     }
 
+    // ── Test 7: VoxelGrid manual set/get ──────────────────
+    {
+        std::cout << "\n--- Test 7: VoxelGrid manual set/get ---\n";
+        snuggle::VoxelGrid grid;
+        grid.allocate(2, 2, 2);
+
+        // Verify initially empty
+        EXPECT(grid.get(0, 0, 0) == false, "Newly allocated grid is empty");
+
+        // Set some bits
+        grid.set(0, 0, 0);
+        grid.set(1, 1, 1);
+        grid.set(0, 1, 0);
+
+        // Verify set bits
+        EXPECT(grid.get(0, 0, 0) == true, "Bit (0,0,0) was set");
+        EXPECT(grid.get(1, 1, 1) == true, "Bit (1,1,1) was set");
+        EXPECT(grid.get(0, 1, 0) == true, "Bit (0,1,0) was set");
+
+        // Verify unset bits
+        EXPECT(grid.get(1, 0, 0) == false, "Bit (1,0,0) is unset");
+        EXPECT(grid.get(0, 0, 1) == false, "Bit (0,0,1) is unset");
+        EXPECT(grid.get(1, 1, 0) == false, "Bit (1,1,0) is unset");
+
+        // Out of bounds
+        grid.set(2, 2, 2); // Should not crash
+        EXPECT(grid.get(2, 2, 2) == false, "Out of bounds get returns false");
+    }
+
 done:
     double total_s = std::chrono::duration<double>(Clock::now() - g_start).count();
 
