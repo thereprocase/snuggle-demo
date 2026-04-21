@@ -88,6 +88,7 @@ link_directories(
 add_executable(arrange_baseline baseline_arrange.cpp nsvg_stub.cpp)
 add_executable(test_voxelizer test_voxelizer.cpp nsvg_stub.cpp)
 add_executable(test_snuggle test_snuggle.cpp nsvg_stub.cpp)
+add_executable(test_nester test_nester.cpp nsvg_stub.cpp)
 add_executable(sweep_resolution sweep_resolution.cpp nsvg_stub.cpp)
 add_executable(sweep_full sweep_full.cpp nsvg_stub.cpp)
 
@@ -172,5 +173,6 @@ set(ORCA_LINK_LIBS
 target_link_libraries(arrange_baseline ${ORCA_LINK_LIBS})
 target_link_libraries(test_voxelizer ${ORCA_LINK_LIBS})
 target_link_libraries(test_snuggle ${ORCA_LINK_LIBS})
+target_link_libraries(test_nester ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_resolution ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_full ${ORCA_LINK_LIBS})
