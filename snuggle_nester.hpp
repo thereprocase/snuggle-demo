@@ -463,6 +463,7 @@ private:
         return pop[best_idx];
     }
 
+public:
     // ── Crossover: inherit from fitter, mix in some from other ─
     void crossover(const Individual &a, const Individual &b,
                    Individual &child, size_t n_parts)
