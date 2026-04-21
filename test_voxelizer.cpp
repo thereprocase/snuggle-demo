@@ -106,6 +106,26 @@ int main(int argc, char** argv) {
     const char* env = std::getenv("SNUGGLE_TEST_PARTS");
     if (env) parts_root = env;
 
+    // ── Test 0: Basic VoxelGrid get/set ─────────
+    {
+        std::cout << "--- Test 0: Basic VoxelGrid get/set ---\n";
+        snuggle::VoxelGrid grid;
+        grid.allocate(10, 10, 10);
+        grid.clear();
+
+        grid.set(1, 2, 3);
+        grid.set(9, 9, 9);
+        grid.set(0, 0, 0);
+
+        EXPECT(grid.get(1, 2, 3) == true, "get(1, 2, 3) is true");
+        EXPECT(grid.get(9, 9, 9) == true, "get(9, 9, 9) is true");
+        EXPECT(grid.get(0, 0, 0) == true, "get(0, 0, 0) is true");
+        EXPECT(grid.get(1, 2, 4) == false, "get(1, 2, 4) is false");
+        EXPECT(grid.get(10, 10, 10) == false, "Out of bounds is false");
+    }
+
+    if (!check_watchdog()) goto done;
+
     // ── Test 1: Basic voxelization of a small part ─────────
     {
         std::cout << "--- Test 1: Voxelize a small part ---\n";
