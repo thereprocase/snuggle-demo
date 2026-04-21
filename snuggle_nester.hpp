@@ -288,6 +288,8 @@ public:
     }
 
 private:
+    friend class SnuggleNesterTest;
+
     NesterConfig cfg_;
     std::mt19937 rng_;
     float total_part_area_ = 0.0f;
