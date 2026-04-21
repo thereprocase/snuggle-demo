@@ -175,7 +175,8 @@ int main() {
     GLFWwindow* win = glfwCreateWindow(1, 1, "", nullptr, nullptr);
     if (!win) { std::cerr << "GL 4.3 failed\n"; return 1; }
     glfwMakeContextCurrent(win);
-    glewExperimental = GL_TRUE; glewInit(); glGetError();
+    glewExperimental = GL_TRUE; glewInit();
+    while (glGetError() != GL_NO_ERROR) {}
     std::cout << "GPU: " << glGetString(GL_RENDERER) << "\n";
 
     GLuint program = compile_compute(BATCHED_SHADER);
