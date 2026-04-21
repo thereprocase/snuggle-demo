@@ -286,6 +286,22 @@ int main() {
                     auto &pi = arrangements[a][i], &pj = arrangements[a][j];
                     snuggle::Vec3f oi = {pi.x * vs, pi.y * vs, 0};
                     snuggle::Vec3f oj = {pj.x * vs, pj.y * vs, 0};
+
+                    // Broad-phase 2D AABB intersection check
+                    float ix_min = oi.x + parts[i].grid.origin.x;
+                    float ix_max = ix_min + parts[i].grid.nx * parts[i].grid.voxel_size;
+                    float iy_min = oi.y + parts[i].grid.origin.y;
+                    float iy_max = iy_min + parts[i].grid.ny * parts[i].grid.voxel_size;
+
+                    float jx_min = oj.x + parts[j].grid.origin.x;
+                    float jx_max = jx_min + parts[j].grid.nx * parts[j].grid.voxel_size;
+                    float jy_min = oj.y + parts[j].grid.origin.y;
+                    float jy_max = jy_min + parts[j].grid.ny * parts[j].grid.voxel_size;
+
+                    if (ix_min >= jx_max || ix_max <= jx_min || iy_min >= jy_max || iy_max <= jy_min) {
+                        continue;
+                    }
+
                     // CPU collision (no rotation in CPU nester currently)
                     total_col += snuggle::VoxelGrid::collision_count(
                         parts[i].grid, oi, parts[j].grid, oj);
