@@ -132,6 +132,69 @@ struct PlacedMesh {
     AABB3 mesh_aabb;
     std::string name;
 
+    struct BVHNode {
+        AABB3 aabb;
+        int left_child;
+        int right_child;
+        size_t tri_start;
+        size_t tri_count;
+    };
+    std::vector<BVHNode> bvh;
+    std::vector<size_t> bvh_tri_indices;
+
+    int build_bvh_node(size_t start, size_t count) {
+        int node_idx = bvh.size();
+        bvh.push_back(BVHNode{});
+
+        auto& node = bvh[node_idx];
+        node.tri_start = start;
+        node.tri_count = count;
+        node.left_child = -1;
+        node.right_child = -1;
+
+        node.aabb.min[0] = node.aabb.min[1] = node.aabb.min[2] = 1e18f;
+        node.aabb.max[0] = node.aabb.max[1] = node.aabb.max[2] = -1e18f;
+
+        for (size_t i = 0; i < count; i++) {
+            const auto& t_aabb = tri_aabbs[bvh_tri_indices[start + i]];
+            for (int d = 0; d < 3; d++) {
+                node.aabb.min[d] = std::min(node.aabb.min[d], t_aabb.min[d]);
+                node.aabb.max[d] = std::max(node.aabb.max[d], t_aabb.max[d]);
+            }
+        }
+
+        if (count <= 4) {
+            return node_idx;
+        }
+
+        int axis = 0;
+        float max_extent = node.aabb.max[0] - node.aabb.min[0];
+        for (int d = 1; d < 3; d++) {
+            float extent = node.aabb.max[d] - node.aabb.min[d];
+            if (extent > max_extent) {
+                max_extent = extent;
+                axis = d;
+            }
+        }
+
+        std::sort(bvh_tri_indices.begin() + start, bvh_tri_indices.begin() + start + count,
+            [&](size_t a, size_t b) {
+                float center_a = tri_aabbs[a].min[axis] + tri_aabbs[a].max[axis];
+                float center_b = tri_aabbs[b].min[axis] + tri_aabbs[b].max[axis];
+                return center_a < center_b;
+            });
+
+        size_t mid = count / 2;
+        int left = build_bvh_node(start, mid);
+        int right = build_bvh_node(start + mid, count - mid);
+
+        // Refetch node reference because bvh vector might have reallocated
+        bvh[node_idx].left_child = left;
+        bvh[node_idx].right_child = right;
+
+        return node_idx;
+    }
+
     void compute_aabbs() {
         tri_aabbs.resize(tris.size());
         mesh_aabb.min[0] = mesh_aabb.min[1] = mesh_aabb.min[2] = 1e18f;
@@ -143,8 +206,57 @@ struct PlacedMesh {
                 mesh_aabb.max[d] = std::max(mesh_aabb.max[d], tri_aabbs[i].max[d]);
             }
         }
+
+        bvh.clear();
+        bvh_tri_indices.resize(tris.size());
+        for (size_t i = 0; i < tris.size(); i++) bvh_tri_indices[i] = i;
+
+        if (!tris.empty()) {
+            build_bvh_node(0, tris.size());
+        }
     }
 };
+
+static void bvh_collide(const PlacedMesh &a, int node_a_idx, const PlacedMesh &b, int node_b_idx, size_t &collisions) {
+    if (node_a_idx == -1 || node_b_idx == -1) return;
+
+    const auto &node_a = a.bvh[node_a_idx];
+    const auto &node_b = b.bvh[node_b_idx];
+
+    if (!node_a.aabb.overlaps(node_b.aabb)) return;
+
+    bool is_leaf_a = (node_a.left_child == -1 && node_a.right_child == -1);
+    bool is_leaf_b = (node_b.left_child == -1 && node_b.right_child == -1);
+
+    if (is_leaf_a && is_leaf_b) {
+        for (size_t i = 0; i < node_a.tri_count; i++) {
+            size_t tri_a_idx = a.bvh_tri_indices[node_a.tri_start + i];
+            for (size_t j = 0; j < node_b.tri_count; j++) {
+                size_t tri_b_idx = b.bvh_tri_indices[node_b.tri_start + j];
+                if (!a.tri_aabbs[tri_a_idx].overlaps(b.tri_aabbs[tri_b_idx]))
+                    continue;
+                if (tri_tri_intersect(a.tris[tri_a_idx], b.tris[tri_b_idx]))
+                    collisions++;
+            }
+        }
+    } else if (is_leaf_a) {
+        bvh_collide(a, node_a_idx, b, node_b.left_child, collisions);
+        bvh_collide(a, node_a_idx, b, node_b.right_child, collisions);
+    } else if (is_leaf_b) {
+        bvh_collide(a, node_a.left_child, b, node_b_idx, collisions);
+        bvh_collide(a, node_a.right_child, b, node_b_idx, collisions);
+    } else {
+        float vol_a = (node_a.aabb.max[0]-node_a.aabb.min[0])*(node_a.aabb.max[1]-node_a.aabb.min[1])*(node_a.aabb.max[2]-node_a.aabb.min[2]);
+        float vol_b = (node_b.aabb.max[0]-node_b.aabb.min[0])*(node_b.aabb.max[1]-node_b.aabb.min[1])*(node_b.aabb.max[2]-node_b.aabb.min[2]);
+        if (vol_a > vol_b) {
+            bvh_collide(a, node_a.left_child, b, node_b_idx, collisions);
+            bvh_collide(a, node_a.right_child, b, node_b_idx, collisions);
+        } else {
+            bvh_collide(a, node_a_idx, b, node_b.left_child, collisions);
+            bvh_collide(a, node_a_idx, b, node_b.right_child, collisions);
+        }
+    }
+}
 
 // ── Check two placed meshes for any triangle intersection ──
 size_t check_mesh_pair(const PlacedMesh &a, const PlacedMesh &b) {
@@ -153,14 +265,8 @@ size_t check_mesh_pair(const PlacedMesh &a, const PlacedMesh &b) {
         return 0;
 
     size_t collisions = 0;
-    for (size_t i = 0; i < a.tris.size(); i++) {
-        for (size_t j = 0; j < b.tris.size(); j++) {
-            // Early out: triangle AABBs don't overlap
-            if (!a.tri_aabbs[i].overlaps(b.tri_aabbs[j]))
-                continue;
-            if (tri_tri_intersect(a.tris[i], b.tris[j]))
-                collisions++;
-        }
+    if (!a.bvh.empty() && !b.bvh.empty()) {
+        bvh_collide(a, 0, b, 0, collisions);
     }
     return collisions;
 }
