@@ -132,7 +132,7 @@ int main() {
         return 1;
     }
     // Clear the GL error from glewInit (known GLEW bug)
-    glGetError();
+    while (glGetError() != GL_NO_ERROR) {}
 
     std::cout << "  GL Vendor:   " << glGetString(GL_VENDOR) << "\n";
     std::cout << "  GL Renderer: " << glGetString(GL_RENDERER) << "\n";
