@@ -109,6 +109,50 @@ static bool tri_tri_intersect(const Tri &a, const Tri &b) {
     return false;
 }
 
+void run_tri_intersect_tests() {
+    std::cout << "--- Testing pure math intersection (tri_tri_intersect) ---\n";
+
+    int fail_count = 0;
+    auto test = [&](const Tri& a, const Tri& b, bool expect_intersect, const std::string& name) {
+        bool result = tri_tri_intersect(a, b);
+        if (result != expect_intersect) {
+            std::cout << "  [FAIL] " << name << " (Expected " << expect_intersect << " got " << result << ")\n";
+            fail_count++;
+        } else {
+            std::cout << "  [PASS] " << name << "\n";
+        }
+    };
+
+    Tri t1 = {{{-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}};
+
+    Tri t2 = {{{0.0f, 0.5f, -1.0f}, {0.0f, 0.5f, 1.0f}, {0.0f, -0.5f, 0.0f}}};
+    test(t1, t2, true, "Perpendicular piercing");
+
+    Tri t3 = {{{10.0f, 0.0f, 0.0f}, {11.0f, 0.0f, 0.0f}, {10.0f, 1.0f, 0.0f}}};
+    test(t1, t3, false, "Widely separated");
+
+    Tri t4 = {{{-1.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 1.0f}}};
+    test(t1, t4, false, "Parallel separated");
+
+    Tri t5 = {{{2.0f, 0.0f, 0.0f}, {3.0f, 0.0f, 0.0f}, {2.0f, 1.0f, 0.0f}}};
+    test(t1, t5, false, "Coplanar separated");
+
+    Tri t6 = {{{0.0f, 0.0f, 0.0f}, {2.0f, 0.0f, 0.0f}, {0.0f, 2.0f, 0.0f}}};
+    test(t1, t6, false, "Coplanar overlapping (MT edge case)");
+
+    Tri t7 = {{{0.0f, 1.5f, -1.0f}, {0.0f, 1.5f, 1.0f}, {0.0f, 2.0f, 0.0f}}};
+    test(t1, t7, false, "Very close separation");
+
+    Tri t8 = {{{0.0f, 0.5f, -1.0f}, {0.0f, 0.5f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
+    test(t1, t8, true, "Proper intersection");
+
+    if (fail_count > 0) {
+        std::cout << "Math tests failed! Aborting.\n";
+        exit(1);
+    }
+    std::cout << "All math tests passed.\n\n";
+}
+
 // ── AABB early-out for triangle pairs ─────────────────────
 struct AABB3 {
     float min[3], max[3];
@@ -310,6 +354,7 @@ static void test_ray_tri_func() {
 
 int main() {
     test_ray_tri_func();
+    run_tri_intersect_tests();
 
     std::cout << "=== Snuggle Independent Collision Validator ===\n";
     std::cout << "Method: Exact triangle-triangle intersection (Moller-Trumbore)\n";
