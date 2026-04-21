@@ -165,7 +165,46 @@ size_t check_mesh_pair(const PlacedMesh &a, const PlacedMesh &b) {
     return collisions;
 }
 
+static void test_ray_tri_func() {
+    float v0[3] = {0.0f, 0.0f, 0.0f};
+    float v1[3] = {1.0f, 0.0f, 0.0f};
+    float v2[3] = {0.0f, 1.0f, 0.0f};
+
+    // 1. Ray passing through the middle of the triangle
+    float orig_hit[3] = {0.2f, 0.2f, 1.0f};
+    float dir_down[3] = {0.0f, 0.0f, -1.0f};
+    if (!ray_tri(orig_hit, dir_down, v0, v1, v2, 2.0f)) {
+        std::cerr << "test_ray_tri failed: expected hit\n";
+        exit(1);
+    }
+
+    // 2. Max_t too small, shouldn't hit
+    if (ray_tri(orig_hit, dir_down, v0, v1, v2, 0.5f)) {
+        std::cerr << "test_ray_tri failed: expected miss due to max_t\n";
+        exit(1);
+    }
+
+    // 3. Ray missing the triangle completely
+    float orig_miss[3] = {1.2f, 1.2f, 1.0f};
+    if (ray_tri(orig_miss, dir_down, v0, v1, v2, 2.0f)) {
+        std::cerr << "test_ray_tri failed: expected miss\n";
+        exit(1);
+    }
+
+    // 4. Ray parallel to the triangle
+    float orig_parallel[3] = {0.2f, 0.2f, 1.0f};
+    float dir_parallel[3] = {1.0f, 0.0f, 0.0f};
+    if (ray_tri(orig_parallel, dir_parallel, v0, v1, v2, 2.0f)) {
+        std::cerr << "test_ray_tri failed: expected miss (parallel)\n";
+        exit(1);
+    }
+
+    std::cout << "test_ray_tri passed!\n";
+}
+
 int main() {
+    test_ray_tri_func();
+
     std::cout << "=== Snuggle Independent Collision Validator ===\n";
     std::cout << "Method: Exact triangle-triangle intersection (Moller-Trumbore)\n";
     std::cout << "This is INDEPENDENT of the voxelizer.\n\n";
