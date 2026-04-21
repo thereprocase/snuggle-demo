@@ -106,6 +106,41 @@ int main(int argc, char** argv) {
     const char* env = std::getenv("SNUGGLE_TEST_PARTS");
     if (env) parts_root = env;
 
+    // ── Test 0: Math functions ─────────────────────────────
+    {
+        std::cout << "--- Test 0: Math functions ---\n";
+        snuggle::Vec3f v0{1.0f, 0.0f, 0.0f};
+        snuggle::Vec3f v1{0.0f, 2.0f, 0.0f};
+        snuggle::Vec3f v2{0.0f, 0.0f, 3.0f};
+
+        // Axis pointing mostly in +x, +y, +z
+        snuggle::Vec3f axis{1.0f, 1.0f, 1.0f};
+
+        float pmin = snuggle::detail::project_min(v0, v1, v2, axis);
+        float pmax = snuggle::detail::project_max(v0, v1, v2, axis);
+
+        EXPECT(std::abs(pmin - 1.0f) < 1e-6f, "project_min correctly finds minimum dot product");
+        EXPECT(std::abs(pmax - 3.0f) < 1e-6f, "project_max correctly finds maximum dot product");
+
+        // Axis with negative components
+        snuggle::Vec3f axis_neg{-1.0f, -1.0f, -1.0f};
+        float pmin_neg = snuggle::detail::project_min(v0, v1, v2, axis_neg);
+        float pmax_neg = snuggle::detail::project_max(v0, v1, v2, axis_neg);
+
+        EXPECT(std::abs(pmin_neg - (-3.0f)) < 1e-6f, "project_min works with negative projection");
+        EXPECT(std::abs(pmax_neg - (-1.0f)) < 1e-6f, "project_max works with negative projection");
+
+        // Check identical values
+        snuggle::Vec3f id{2.0f, 2.0f, 2.0f};
+        snuggle::Vec3f axis_x{1.0f, 0.0f, 0.0f};
+        float pmin_id = snuggle::detail::project_min(id, id, id, axis_x);
+        float pmax_id = snuggle::detail::project_max(id, id, id, axis_x);
+        EXPECT(std::abs(pmin_id - 2.0f) < 1e-6f, "project_min handles identical projections");
+        EXPECT(std::abs(pmax_id - 2.0f) < 1e-6f, "project_max handles identical projections");
+    }
+
+    if (!check_watchdog()) goto done;
+
     // ── Test 1: Basic voxelization of a small part ─────────
     {
         std::cout << "--- Test 1: Voxelize a small part ---\n";
