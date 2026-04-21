@@ -283,6 +283,8 @@ public:
     }
 
 private:
+    friend class SnuggleNesterTest;
+
     NesterConfig cfg_;
     std::mt19937 rng_;
 

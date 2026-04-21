@@ -174,3 +174,6 @@ target_link_libraries(test_voxelizer ${ORCA_LINK_LIBS})
 target_link_libraries(test_snuggle ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_resolution ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_full ${ORCA_LINK_LIBS})
+
+add_executable(test_rand test_rand.cpp nsvg_stub.cpp)
+target_link_libraries(test_rand ${ORCA_LINK_LIBS})
