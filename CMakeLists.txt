@@ -4,6 +4,8 @@ project(snuggle-bench CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+enable_testing()
+
 # ── Root paths (configure these to point at your OrcaSlicer checkout) ──
 # Clone OrcaSlicer and build it first, then set ORCA_ROOT to its location.
 # Example: cmake -B build -DORCA_ROOT=C:/dev/OrcaSlicer
@@ -90,6 +92,7 @@ add_executable(test_voxelizer test_voxelizer.cpp nsvg_stub.cpp)
 add_executable(test_snuggle test_snuggle.cpp nsvg_stub.cpp)
 add_executable(sweep_resolution sweep_resolution.cpp nsvg_stub.cpp)
 add_executable(sweep_full sweep_full.cpp nsvg_stub.cpp)
+add_executable(test_crossover test_crossover.cpp nsvg_stub.cpp)
 
 set(ORCA_LINK_LIBS
     # Core
@@ -174,3 +177,5 @@ target_link_libraries(test_voxelizer ${ORCA_LINK_LIBS})
 target_link_libraries(test_snuggle ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_resolution ${ORCA_LINK_LIBS})
 target_link_libraries(sweep_full ${ORCA_LINK_LIBS})
+target_link_libraries(test_crossover ${ORCA_LINK_LIBS})
+add_test(NAME test_crossover COMMAND test_crossover)
