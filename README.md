@@ -13,6 +13,7 @@ This repo contains the standalone CPU prototype, test harness, and benchmark too
 | `baseline_arrange.cpp` | Runs OrcaSlicer's existing 2D convex hull arrange as a baseline |
 | `test_voxelizer.cpp` | Validates voxelization, collision detection, memory guards |
 | `test_snuggle.cpp` | End-to-end: load STLs → voxelize → evolve → validate |
+| `test_individual.cpp` | Unit tests for Individual data structure and scoring |
 | `sweep_resolution.cpp` | Resolution/population parameter sweep on one test set |
 | `sweep_full.cpp` | Full sweep across multiple test sets |
 | `gpu_poc.cpp` | GPU compute shader proof of concept (collision detection) |
