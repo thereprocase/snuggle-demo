@@ -322,10 +322,23 @@ inline VoxError voxelize_mesh(
         return VoxError::ABORTED_BY_USER;
 
     AABB bounds;
+    std::vector<AABB> tri_bounds(num_triangles);
     for (size_t i = 0; i < num_triangles; i++) {
-        bounds.expand(triangles[i].v0);
-        bounds.expand(triangles[i].v1);
-        bounds.expand(triangles[i].v2);
+        const Triangle& tri = triangles[i];
+
+        AABB tb;
+        tb.min.x = std::min({tri.v0.x, tri.v1.x, tri.v2.x});
+        tb.min.y = std::min({tri.v0.y, tri.v1.y, tri.v2.y});
+        tb.min.z = std::min({tri.v0.z, tri.v1.z, tri.v2.z});
+
+        tb.max.x = std::max({tri.v0.x, tri.v1.x, tri.v2.x});
+        tb.max.y = std::max({tri.v0.y, tri.v1.y, tri.v2.y});
+        tb.max.z = std::max({tri.v0.z, tri.v1.z, tri.v2.z});
+
+        tri_bounds[i] = tb;
+
+        bounds.expand(tb.min);
+        bounds.expand(tb.max);
     }
 
     // Expand bounds by one voxel on each side (conservative outward)
@@ -365,18 +378,24 @@ inline VoxError voxelize_mesh(
         const Triangle &tri = triangles[ti];
 
         // Triangle AABB in grid coords (conservative: floor min, ceil max)
+        const AABB& tb = tri_bounds[ti];
         int ix_min, iy_min, iz_min, ix_max, iy_max, iz_max;
-        out_grid.world_to_grid(tri.v0, ix_min, iy_min, iz_min);
-        ix_max = ix_min; iy_max = iy_min; iz_max = iz_min;
 
-        int tx, ty, tz;
-        out_grid.world_to_grid(tri.v1, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
+        // Use the precomputed triangle AABB world min/max corners.
+        // We evaluate both min and max to ensure we properly encompass the bounding box
+        // regardless of grid axis orientation/scale (e.g., if negative scale is used).
+        int t0x, t0y, t0z;
+        int t1x, t1y, t1z;
+        out_grid.world_to_grid(tb.min, t0x, t0y, t0z);
+        out_grid.world_to_grid(tb.max, t1x, t1y, t1z);
 
-        out_grid.world_to_grid(tri.v2, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
+        ix_min = std::min(t0x, t1x);
+        iy_min = std::min(t0y, t1y);
+        iz_min = std::min(t0z, t1z);
+
+        ix_max = std::max(t0x, t1x);
+        iy_max = std::max(t0y, t1y);
+        iz_max = std::max(t0z, t1z);
 
         // Expand by 1 in each direction (conservative outward)
         ix_min = std::max(0, ix_min - 1);
