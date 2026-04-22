@@ -31,31 +31,7 @@ static constexpr float BED_W          = 256.0f;
 static constexpr float BED_H          = 256.0f;
 
 // ── Extract mesh data from Orca ───────────────────────────
-struct RawMesh {
-    std::vector<float>    verts;
-    std::vector<uint32_t> indices;
-    size_t nv = 0, nt = 0;
-};
 
-RawMesh extract(const TriangleMesh &mesh) {
-    RawMesh m;
-    const auto &its = mesh.its;
-    m.nv = its.vertices.size();
-    m.nt = its.indices.size();
-    m.verts.resize(m.nv * 3);
-    m.indices.resize(m.nt * 3);
-    for (size_t i = 0; i < m.nv; i++) {
-        m.verts[i*3+0] = its.vertices[i].x();
-        m.verts[i*3+1] = its.vertices[i].y();
-        m.verts[i*3+2] = its.vertices[i].z();
-    }
-    for (size_t i = 0; i < m.nt; i++) {
-        m.indices[i*3+0] = its.indices[i](0);
-        m.indices[i*3+1] = its.indices[i](1);
-        m.indices[i*3+2] = its.indices[i](2);
-    }
-    return m;
-}
 
 // ── Compute packing bounding area ─────────────────────────
 float bounding_area(const std::vector<snuggle::Placement> &pl,
@@ -169,15 +145,15 @@ int main(int argc, char** argv) {
                 std::cout << "FAILED\n"; ok = false; break;
             }
 
-            RawMesh rm = extract(model.objects[0]->volumes[0]->mesh());
+            snuggle::RawMesh rm = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
 
             snuggle::PartInfo pi;
             pi.name = fname;
 
             auto t0 = Clock::now();
             auto err = snuggle::voxelize_indexed_mesh(
-                rm.verts.data(), rm.nv,
-                rm.indices.data(), rm.nt,
+                rm.vertices.data(), rm.num_verts,
+                rm.indices.data(), rm.num_tris,
                 VOXEL_SIZE_MM, pi.grid);
             auto t1 = Clock::now();
             double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -192,7 +168,7 @@ int main(int argc, char** argv) {
             pi.max_height_mm = pi.grid.nz * pi.grid.voxel_size;
             pi.hull_area_mm2 = pi.grid.nx * pi.grid.ny * pi.grid.voxel_size * pi.grid.voxel_size;
 
-            std::cout << rm.nt << " tris -> "
+            std::cout << rm.num_tris << " tris -> "
                       << pi.grid.nx << "x" << pi.grid.ny << "x" << pi.grid.nz
                       << " (" << ms << "ms)\n";
 

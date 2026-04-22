@@ -22,31 +22,7 @@ namespace stdfs = std::filesystem;
 using namespace Slic3r;
 using Clock = std::chrono::steady_clock;
 
-struct RawMesh {
-    std::vector<float> verts;
-    std::vector<uint32_t> indices;
-    size_t nv = 0, nt = 0;
-};
 
-RawMesh extract(const TriangleMesh &mesh) {
-    RawMesh m;
-    const auto &its = mesh.its;
-    m.nv = its.vertices.size();
-    m.nt = its.indices.size();
-    m.verts.resize(m.nv * 3);
-    m.indices.resize(m.nt * 3);
-    for (size_t i = 0; i < m.nv; i++) {
-        m.verts[i*3] = its.vertices[i].x();
-        m.verts[i*3+1] = its.vertices[i].y();
-        m.verts[i*3+2] = its.vertices[i].z();
-    }
-    for (size_t i = 0; i < m.nt; i++) {
-        m.indices[i*3] = its.indices[i](0);
-        m.indices[i*3+1] = its.indices[i](1);
-        m.indices[i*3+2] = its.indices[i](2);
-    }
-    return m;
-}
 
 float bounding_area(const std::vector<snuggle::Placement> &pl,
                     const std::vector<snuggle::PartInfo> &parts) {
@@ -130,13 +106,13 @@ int main(int argc, char** argv) {
         std::cout << "==============================\n\n";
 
         // Load raw meshes
-        std::vector<RawMesh> meshes;
+        std::vector<snuggle::RawMesh> meshes;
         std::vector<std::string> names;
         for (const auto &path : ts.paths) {
             Model model;
             std::string fname = stdfs::path(path).filename().string();
             load_stl(path.c_str(), &model, fname.c_str());
-            meshes.push_back(extract(model.objects[0]->volumes[0]->mesh()));
+            meshes.push_back(snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh()));
             names.push_back(fname);
         }
 
@@ -156,8 +132,8 @@ int main(int argc, char** argv) {
                 snuggle::PartInfo pi;
                 pi.name = names[mi];
                 auto err = snuggle::voxelize_indexed_mesh(
-                    meshes[mi].verts.data(), meshes[mi].nv,
-                    meshes[mi].indices.data(), meshes[mi].nt,
+                    meshes[mi].vertices.data(), meshes[mi].num_verts,
+                    meshes[mi].indices.data(), meshes[mi].num_tris,
                     vs, pi.grid);
                 if (err != snuggle::VoxError::OK) {
                     std::cout << vs << "mm: voxelization failed for " << names[mi]

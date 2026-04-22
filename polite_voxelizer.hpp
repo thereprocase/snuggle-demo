@@ -80,6 +80,48 @@ struct Triangle {
     Vec3f v0, v1, v2;
 };
 
+// ── RawMesh: extracted flat mesh for voxelization ─────────
+struct RawMesh {
+    std::vector<float>    vertices;
+    std::vector<uint32_t> indices;
+    size_t num_verts = 0;
+    size_t num_tris = 0;
+
+    template <typename TriangleMeshType>
+    static RawMesh extract(const TriangleMeshType &mesh) {
+        RawMesh m;
+        const auto &its = mesh.its;
+        m.num_verts = its.vertices.size();
+        m.num_tris = its.indices.size();
+
+        m.vertices.resize(m.num_verts * 3);
+        m.indices.resize(m.num_tris * 3);
+
+        if constexpr (sizeof(its.vertices[0]) == 3 * sizeof(float) && sizeof(its.indices[0]) == 3 * sizeof(uint32_t)) {
+            if (m.num_verts > 0) {
+                std::memcpy(m.vertices.data(), its.vertices.data(), m.num_verts * 3 * sizeof(float));
+            }
+            if (m.num_tris > 0) {
+                std::memcpy(m.indices.data(), its.indices.data(), m.num_tris * 3 * sizeof(uint32_t));
+            }
+        } else {
+            for (size_t i = 0; i < m.num_verts; i++) {
+                m.vertices[i*3+0] = its.vertices[i].x();
+                m.vertices[i*3+1] = its.vertices[i].y();
+                m.vertices[i*3+2] = its.vertices[i].z();
+                if ((i+1) % 5000 == 0) polite_yield();
+            }
+            for (size_t i = 0; i < m.num_tris; i++) {
+                m.indices[i*3+0] = its.indices[i](0);
+                m.indices[i*3+1] = its.indices[i](1);
+                m.indices[i*3+2] = its.indices[i](2);
+            }
+        }
+
+        return m;
+    }
+};
+
 // ── Error codes ───────────────────────────────────────────
 enum class VoxError {
     OK = 0,
