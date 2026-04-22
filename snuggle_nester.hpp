@@ -478,6 +478,7 @@ public:
         }
     }
 
+private:
     // ── Mutation (with adaptive scaling) ───────────────────
     void mutate(Individual &ind, const std::vector<PartInfo> &parts,
                 float scale = 1.0f)
