@@ -364,19 +364,21 @@ inline VoxError voxelize_mesh(
     for (size_t ti = 0; ti < num_triangles; ti++) {
         const Triangle &tri = triangles[ti];
 
-        // Triangle AABB in grid coords (conservative: floor min, ceil max)
+        // Triangle AABB in world coords — shared with the per-voxel SAT test below.
+        float tri_min_x = std::min({tri.v0.x, tri.v1.x, tri.v2.x});
+        float tri_max_x = std::max({tri.v0.x, tri.v1.x, tri.v2.x});
+        float tri_min_y = std::min({tri.v0.y, tri.v1.y, tri.v2.y});
+        float tri_max_y = std::max({tri.v0.y, tri.v1.y, tri.v2.y});
+        float tri_min_z = std::min({tri.v0.z, tri.v1.z, tri.v2.z});
+        float tri_max_z = std::max({tri.v0.z, tri.v1.z, tri.v2.z});
+
+        // Triangle AABB in grid coords (conservative: floor min, ceil max).
+        // world_to_grid is componentwise affine, so the grid AABB of the
+        // vertex set equals the grid transform of the world AABB corners —
+        // two world_to_grid calls instead of three.
         int ix_min, iy_min, iz_min, ix_max, iy_max, iz_max;
-        out_grid.world_to_grid(tri.v0, ix_min, iy_min, iz_min);
-        ix_max = ix_min; iy_max = iy_min; iz_max = iz_min;
-
-        int tx, ty, tz;
-        out_grid.world_to_grid(tri.v1, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
-
-        out_grid.world_to_grid(tri.v2, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
+        out_grid.world_to_grid({tri_min_x, tri_min_y, tri_min_z}, ix_min, iy_min, iz_min);
+        out_grid.world_to_grid({tri_max_x, tri_max_y, tri_max_z}, ix_max, iy_max, iz_max);
 
         // Expand by 1 in each direction (conservative outward)
         ix_min = std::max(0, ix_min - 1);
@@ -414,14 +416,6 @@ inline VoxError voxelize_mesh(
         Vec3f n = e0.cross(e1);
         float n_r = half.x * std::abs(n.x) + half.y * std::abs(n.y) + half.z * std::abs(n.z);
         float n_tri_dot = n.dot(tri.v0); // constant since n.dot(v0) == n.dot(v1) == n.dot(v2)
-
-        // Precompute bounds for the 3 box face axes
-        float tri_min_x = std::min({tri.v0.x, tri.v1.x, tri.v2.x});
-        float tri_max_x = std::max({tri.v0.x, tri.v1.x, tri.v2.x});
-        float tri_min_y = std::min({tri.v0.y, tri.v1.y, tri.v2.y});
-        float tri_max_y = std::max({tri.v0.y, tri.v1.y, tri.v2.y});
-        float tri_min_z = std::min({tri.v0.z, tri.v1.z, tri.v2.z});
-        float tri_max_z = std::max({tri.v0.z, tri.v1.z, tri.v2.z});
 
         // For the 9 cross-product axes, precompute the bounds of the triangle projected onto the axis
         float ax_tri_min[9];
