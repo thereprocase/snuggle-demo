@@ -259,12 +259,23 @@ inline float project_max(const Vec3f &v0, const Vec3f &v1, const Vec3f &v2, cons
 // overlaps an axis-aligned box of half-size h.
 inline bool triangle_aabb_overlap(
     const Vec3f &v0, const Vec3f &v1, const Vec3f &v2,
-    const Vec3f &half)
+    const Vec3f &half, const Vec3f &tri_min, const Vec3f &tri_max)
 {
+    // 3 box face axes
+    if (tri_min.x > half.x || tri_max.x < -half.x) return false;
+    if (tri_min.y > half.y || tri_max.y < -half.y) return false;
+    if (tri_min.z > half.z || tri_max.z < -half.z) return false;
+
     // Edge vectors
     Vec3f e0 = v1 - v0;
     Vec3f e1 = v2 - v1;
     Vec3f e2 = v0 - v2;
+
+    // Triangle normal axis
+    Vec3f n = e0.cross(e1);
+    float d = n.dot(v0);
+    float r = half.x * std::abs(n.x) + half.y * std::abs(n.y) + half.z * std::abs(n.z);
+    if (d > r || d < -r) return false;
 
     // 9 cross-product axes (edge x box-axis)
     Vec3f axes[9] = {
@@ -278,22 +289,11 @@ inline bool triangle_aabb_overlap(
         float len2 = a.x*a.x + a.y*a.y + a.z*a.z;
         if (len2 < 1e-12f) continue;  // Degenerate axis
 
-        float r = half.x * std::abs(a.x) + half.y * std::abs(a.y) + half.z * std::abs(a.z);
+        r = half.x * std::abs(a.x) + half.y * std::abs(a.y) + half.z * std::abs(a.z);
         float pmin = project_min(v0, v1, v2, a);
         float pmax = project_max(v0, v1, v2, a);
         if (pmin > r || pmax < -r) return false;
     }
-
-    // 3 box face axes
-    if (std::min({v0.x,v1.x,v2.x}) > half.x || std::max({v0.x,v1.x,v2.x}) < -half.x) return false;
-    if (std::min({v0.y,v1.y,v2.y}) > half.y || std::max({v0.y,v1.y,v2.y}) < -half.y) return false;
-    if (std::min({v0.z,v1.z,v2.z}) > half.z || std::max({v0.z,v1.z,v2.z}) < -half.z) return false;
-
-    // Triangle normal axis
-    Vec3f n = e0.cross(e1);
-    float d = n.dot(v0);
-    float r = half.x * std::abs(n.x) + half.y * std::abs(n.y) + half.z * std::abs(n.z);
-    if (d > r || d < -r) return false;
 
     return true;
 }
@@ -323,9 +323,23 @@ inline VoxError voxelize_mesh(
 
     AABB bounds;
     for (size_t i = 0; i < num_triangles; i++) {
-        bounds.expand(triangles[i].v0);
-        bounds.expand(triangles[i].v1);
-        bounds.expand(triangles[i].v2);
+        float minx = triangles[i].v0.x; float miny = triangles[i].v0.y; float minz = triangles[i].v0.z;
+        float maxx = triangles[i].v0.x; float maxy = triangles[i].v0.y; float maxz = triangles[i].v0.z;
+
+        if (triangles[i].v1.x < minx) minx = triangles[i].v1.x; else if (triangles[i].v1.x > maxx) maxx = triangles[i].v1.x;
+        if (triangles[i].v1.y < miny) miny = triangles[i].v1.y; else if (triangles[i].v1.y > maxy) maxy = triangles[i].v1.y;
+        if (triangles[i].v1.z < minz) minz = triangles[i].v1.z; else if (triangles[i].v1.z > maxz) maxz = triangles[i].v1.z;
+
+        if (triangles[i].v2.x < minx) minx = triangles[i].v2.x; else if (triangles[i].v2.x > maxx) maxx = triangles[i].v2.x;
+        if (triangles[i].v2.y < miny) miny = triangles[i].v2.y; else if (triangles[i].v2.y > maxy) maxy = triangles[i].v2.y;
+        if (triangles[i].v2.z < minz) minz = triangles[i].v2.z; else if (triangles[i].v2.z > maxz) maxz = triangles[i].v2.z;
+
+        if (minx < bounds.min.x) bounds.min.x = minx;
+        if (miny < bounds.min.y) bounds.min.y = miny;
+        if (minz < bounds.min.z) bounds.min.z = minz;
+        if (maxx > bounds.max.x) bounds.max.x = maxx;
+        if (maxy > bounds.max.y) bounds.max.y = maxy;
+        if (maxz > bounds.max.z) bounds.max.z = maxz;
     }
 
     // Expand bounds by one voxel on each side (conservative outward)
@@ -364,19 +378,22 @@ inline VoxError voxelize_mesh(
     for (size_t ti = 0; ti < num_triangles; ti++) {
         const Triangle &tri = triangles[ti];
 
+        // Compute triangle AABB once inline
+        float t_minx = tri.v0.x; float t_miny = tri.v0.y; float t_minz = tri.v0.z;
+        float t_maxx = tri.v0.x; float t_maxy = tri.v0.y; float t_maxz = tri.v0.z;
+
+        if (tri.v1.x < t_minx) t_minx = tri.v1.x; else if (tri.v1.x > t_maxx) t_maxx = tri.v1.x;
+        if (tri.v1.y < t_miny) t_miny = tri.v1.y; else if (tri.v1.y > t_maxy) t_maxy = tri.v1.y;
+        if (tri.v1.z < t_minz) t_minz = tri.v1.z; else if (tri.v1.z > t_maxz) t_maxz = tri.v1.z;
+
+        if (tri.v2.x < t_minx) t_minx = tri.v2.x; else if (tri.v2.x > t_maxx) t_maxx = tri.v2.x;
+        if (tri.v2.y < t_miny) t_miny = tri.v2.y; else if (tri.v2.y > t_maxy) t_maxy = tri.v2.y;
+        if (tri.v2.z < t_minz) t_minz = tri.v2.z; else if (tri.v2.z > t_maxz) t_maxz = tri.v2.z;
+
         // Triangle AABB in grid coords (conservative: floor min, ceil max)
         int ix_min, iy_min, iz_min, ix_max, iy_max, iz_max;
-        out_grid.world_to_grid(tri.v0, ix_min, iy_min, iz_min);
-        ix_max = ix_min; iy_max = iy_min; iz_max = iz_min;
-
-        int tx, ty, tz;
-        out_grid.world_to_grid(tri.v1, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
-
-        out_grid.world_to_grid(tri.v2, tx, ty, tz);
-        ix_min = std::min(ix_min, tx); iy_min = std::min(iy_min, ty); iz_min = std::min(iz_min, tz);
-        ix_max = std::max(ix_max, tx); iy_max = std::max(iy_max, ty); iz_max = std::max(iz_max, tz);
+        out_grid.world_to_grid({t_minx, t_miny, t_minz}, ix_min, iy_min, iz_min);
+        out_grid.world_to_grid({t_maxx, t_maxy, t_maxz}, ix_max, iy_max, iz_max);
 
         // Expand by 1 in each direction (conservative outward)
         ix_min = std::max(0, ix_min - 1);
@@ -398,7 +415,10 @@ inline VoxError voxelize_mesh(
                     Vec3f v1 = tri.v1 - center;
                     Vec3f v2 = tri.v2 - center;
 
-                    if (detail::triangle_aabb_overlap(v0, v1, v2, half)) {
+                    Vec3f t_min = {t_minx - center.x, t_miny - center.y, t_minz - center.z};
+                    Vec3f t_max = {t_maxx - center.x, t_maxy - center.y, t_maxz - center.z};
+
+                    if (detail::triangle_aabb_overlap(v0, v1, v2, half, t_min, t_max)) {
                         out_grid.set(ix, iy, iz);
                     }
                 }
