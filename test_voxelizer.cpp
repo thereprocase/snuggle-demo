@@ -46,36 +46,7 @@ bool check_watchdog() {
 
 // ── Extract triangles from Orca TriangleMesh ──────────────
 //    Copies into snuggle's format. Polite: yields during copy.
-struct MeshData {
-    std::vector<float>    vertices;  // flat xyz
-    std::vector<uint32_t> indices;   // flat i0,i1,i2
-    size_t num_tris = 0;
-    size_t num_verts = 0;
-};
 
-MeshData extract_mesh(const TriangleMesh &mesh) {
-    MeshData md;
-    const auto &its = mesh.its;
-    md.num_verts = its.vertices.size();
-    md.num_tris = its.indices.size();
-
-    md.vertices.resize(md.num_verts * 3);
-    for (size_t i = 0; i < md.num_verts; i++) {
-        md.vertices[i*3+0] = its.vertices[i].x();
-        md.vertices[i*3+1] = its.vertices[i].y();
-        md.vertices[i*3+2] = its.vertices[i].z();
-        if ((i+1) % 5000 == 0) snuggle::polite_yield();
-    }
-
-    md.indices.resize(md.num_tris * 3);
-    for (size_t i = 0; i < md.num_tris; i++) {
-        md.indices[i*3+0] = its.indices[i](0);
-        md.indices[i*3+1] = its.indices[i](1);
-        md.indices[i*3+2] = its.indices[i](2);
-    }
-
-    return md;
-}
 
 // ── Test result tracking ──────────────────────────────────
 static int g_pass = 0, g_fail = 0;
@@ -167,7 +138,7 @@ int main(int argc, char** argv) {
         EXPECT(loaded, "STL loaded");
         if (!loaded) goto done;
 
-        MeshData md = extract_mesh(model.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh md = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
         std::cout << "  Mesh: " << md.num_tris << " tris, " << md.num_verts << " verts\n";
 
         snuggle::VoxelGrid grid;
@@ -207,7 +178,7 @@ int main(int argc, char** argv) {
         Model model;
         std::string path = parts_root + "/small/part2.stl";
         load_stl(path.c_str(), &model, "cap");
-        MeshData md = extract_mesh(model.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh md = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
 
         snuggle::VoxelGrid gridA, gridB;
         snuggle::voxelize_indexed_mesh(
@@ -235,7 +206,7 @@ int main(int argc, char** argv) {
         Model model;
         std::string path = parts_root + "/small/part2.stl";
         load_stl(path.c_str(), &model, "cap");
-        MeshData md = extract_mesh(model.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh md = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
 
         snuggle::VoxelGrid gridA, gridB;
         snuggle::voxelize_indexed_mesh(
@@ -266,7 +237,7 @@ int main(int argc, char** argv) {
         EXPECT(loaded, "Large STL loaded");
         if (!loaded) goto done;
 
-        MeshData md = extract_mesh(model.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh md = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
         std::cout << "  Mesh: " << md.num_tris << " tris\n";
 
         snuggle::VoxelGrid grid;
@@ -305,8 +276,8 @@ int main(int argc, char** argv) {
         load_stl((parts_root + "/small/part2.stl").c_str(), &modelA, "cap");
         load_stl((parts_root + "/small/part3.stl").c_str(), &modelB, "case");
 
-        MeshData mdA = extract_mesh(modelA.objects[0]->volumes[0]->mesh());
-        MeshData mdB = extract_mesh(modelB.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh mdA = snuggle::RawMesh::extract(modelA.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh mdB = snuggle::RawMesh::extract(modelB.objects[0]->volumes[0]->mesh());
 
         snuggle::VoxelGrid gridA, gridB;
         snuggle::voxelize_indexed_mesh(mdA.vertices.data(), mdA.num_verts,
@@ -349,7 +320,7 @@ int main(int argc, char** argv) {
         std::cout << "\n--- Test 6: Memory guard (try insane resolution) ---\n";
         Model model;
         load_stl((parts_root + "/small/part2.stl").c_str(), &model, "cap");
-        MeshData md = extract_mesh(model.objects[0]->volumes[0]->mesh());
+        snuggle::RawMesh md = snuggle::RawMesh::extract(model.objects[0]->volumes[0]->mesh());
 
         snuggle::VoxelGrid grid;
         // 0.01mm resolution on a 30mm part = 3000^3 grid = WAY too big
